@@ -9,22 +9,29 @@ const logFormat = winston.format.combine(
   winston.format.json()
 );
 
-// Create logger instance
-const logger = winston.createLogger({
-  level: keys.LOG_LEVEL,
-  format: logFormat,
-  defaultMeta: { service: 'task-manager-api' },
-  transports: [
-    // Write all logs with level 'error' and below to error.log
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    // Write all logs to combined.log
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
-});
+// Determine transports based on environment
+const transports = [];
 
-// If not in production, also log to console
-if (keys.NODE_ENV !== 'production') {
-  logger.add(
+// In production (Vercel/serverless), only use console logging
+// File system is read-only except /tmp
+if (keys.NODE_ENV === 'production') {
+  transports.push(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      ),
+    })
+  );
+} else {
+  // In development, use file logging
+  transports.push(
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' })
+  );
+  
+  // Also log to console in development
+  transports.push(
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
@@ -33,5 +40,13 @@ if (keys.NODE_ENV !== 'production') {
     })
   );
 }
+
+// Create logger instance
+const logger = winston.createLogger({
+  level: keys.LOG_LEVEL,
+  format: logFormat,
+  defaultMeta: { service: 'task-manager-api' },
+  transports: transports,
+});
 
 module.exports = logger;
